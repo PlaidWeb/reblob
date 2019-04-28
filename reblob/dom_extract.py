@@ -5,12 +5,12 @@ import logging
 LOGGER = logging.getLogger('dom')
 
 
-def get_meta(dom, property):
+def get_meta(dom, prop):
     """ Get the content from an OpenGraph tag, if present """
-    node = dom.find('meta', property=property)
+    node = dom.find('meta', property=prop)
     if node:
         content = node.get('content')
-        LOGGER.debug("found meta %s = '%s'", property, content)
+        LOGGER.debug("found meta %s = '%s'", prop, content)
         return content
     return None
 

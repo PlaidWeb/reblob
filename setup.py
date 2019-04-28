@@ -12,10 +12,15 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md')) as f:
     long_description = f.read()
 
+main_ns = {}
+ver_path = convert_path('reblob/__version__.py')
+with open(ver_path) as ver_file:
+    exec(ver_file.read(), main_ns)
+
 setup(
     name='reblob',
 
-    version='0.0.0',
+    version=main_ns['__version__'],
 
     description='A tool for formatting a response to a page',
 
@@ -53,7 +58,8 @@ setup(
     install_requires=[
         'beautifulsoup4',
         'pypandoc',
-        'requests'
+        'requests',
+        'mf2py'
     ],
 
     extras_require={

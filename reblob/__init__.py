@@ -2,20 +2,14 @@
 
 import urllib.parse
 import re
+import itertools
 
 from bs4 import BeautifulSoup
 import requests
+import mf2py
 import pypandoc
 
-__version__ = '0.0.0'
-
-
-def _get_articles(soup):
-    return (soup.find_all(class_="e-content")
-            or soup.find_all(class_="h-entry")
-            or soup.find_all("article")
-            or soup.find_all(class_="entry")
-            or [soup])
+from . import dom_extract
 
 
 def _rewrite_srcset(srcset, base_url):
@@ -28,7 +22,93 @@ def _rewrite_srcset(srcset, base_url):
     return ', '.join(out_parts)
 
 
-def convert_text(doc, base_url, format='markdown_github'):
+def _extract_mf(item, base_url):
+    """ Convert an mf2-formatted entry to a pretty blockquote """
+    properties = item.get('properties', {})
+
+    out_html = '<p>'
+
+    if 'author' in properties:
+        # just use the primary author for now
+        author = properties.get('author')[0].get('properties', {})
+
+        if 'url' in author and 'name' in author:
+            out_html += '<a href="{url}">{name}</a>: '.format(
+                url=author.get('url')[0],
+                name=author.get('name')[0])
+        elif 'name' in author:
+            out_html += '{name}: '.format(author.get('name')[0])
+
+    if 'url' in properties:
+        url = properties['url'][0]
+    else:
+        url = base_url
+
+    if 'name' in properties:
+        title = properties['name'][0]
+    else:
+        title = base_url
+
+    out_html += '<a href="{url}">{title}</a>:'.format(url=url, title=title)
+
+    out_html += '</p>'
+
+    out_html += '<blockquote cite="{url}">'.format(url=url)
+
+    if 'content' in properties:
+        for content in properties['content']:
+            if 'html' in content:
+                out_html += content['html']
+            elif 'value' in content:
+                out_html += '\n'.join(
+                    ['<p>%s</p>' % para for para in content['value'].split('\n')])
+    elif 'summary' in properties:
+        out_html += '\n'.join(['<p>%s</p>' %
+                               summary for summary in properties['summary']])
+
+    out_html += '</blockquote>'
+    return out_html
+
+
+def _extract_dom(dom, root, base_url):
+    """ Convert a plain DOM entry to a pretty blockquote """
+
+    out_html = '<p>'
+
+    author = dom_extract.guess_author(dom, root)
+    if author:
+        out_html += author + ': '
+
+    url = dom_extract.guess_canonical_url(dom, root, base_url)
+    out_html += '<a href="{url}">{title}</a>'.format(
+        url=url,
+        title=dom_extract.guess_title(dom, root, base_url))
+
+    out_html += '</p>'
+
+    out_html += '<blockquote cite="{url}">{content}</blockquote>'.format(
+        url=url,
+        content=dom_extract.guess_content(dom))
+
+    return out_html
+
+
+def _extract(text, url):
+    mf = mf2py.parse(text)
+    if 'items' in mf:
+        return [_extract_mf(item, url) for item in mf['items']]
+
+    # no valid mf2, so let's extract from DOM instead
+    dom = BeautifulSoup(r.text, features='html.parser')
+    articles = (dom.find_all('article')
+                or dom.find_all(class_='entry')
+                or dom.find_all(class_='article')
+                or [dom])
+
+    return [_extract_dom(item, dom, url) for item in articles]
+
+
+def convert_text(text, base_url, format='markdown_github'):
     """ Convert a BeautifulSoup document to output markup; attempts to find
     a plausible article to excerpt.
 
@@ -43,24 +123,24 @@ def convert_text(doc, base_url, format='markdown_github'):
     Returns: the converted document fragment
     """
 
-    articles = _get_articles(doc)
+    out_html = '\n\n'.join(_extract(text, base_url))
 
-    title = doc.find('title').decode_contents()
+    # create a new DOM document from the joined blockquotes
+    out_dom = BeautifulSoup(out_html, features='html.parser')
 
-    out_html = '<p><a href="{url}">{title}</a>:</p>\n'.format(
-        url=base_url, title=title)
+    # convert all href, src, and srcset attributes
+    for attr in ('href', 'src'):
+        for node in out_dom.findAll(**{attr: True}):
+            node[attr] = urllib.parse.urljoin(base_url, node[attr])
+    for node in out_dom.findAll(srcset=True):
+        node['srcset'] = _rewrite_srcset(node['srcset'], base_url)
 
-    for article in articles:
-        # convert all href, src, and srcset attributes
-        for attr in ('href', 'src'):
-            for node in article.findAll(**{attr: True}):
-                node[attr] = urllib.parse.urljoin(base_url, node[attr])
-        for node in article.findAll(srcset=True):
-            node['srcset'] = _rewrite_srcset(node['srcset'], base_url)
+    # strip out attributes we don't want
+    for attr in ('id', 'class'):
+        for node in out_dom.findAll(**{attr: True}):
+            del node[attr]
 
-        out_html += '<blockquote>' + article.decode_contents() + '</blockquote>\n'
-
-    return pypandoc.convert_text(out_html, format, 'html')
+    return pypandoc.convert_text(out_dom.decode_contents(), format, 'html')
 
 
 def convert(url, format='markdown_github'):
@@ -76,4 +156,5 @@ def convert(url, format='markdown_github'):
     r = requests.get(url)
     if not 200 <= r.status_code < 300:
         r.raise_for_status()
-    return convert_text(BeautifulSoup(r.text, features='html.parser'), r.url, format)
+
+    return convert_text(r.text, r.url, format)

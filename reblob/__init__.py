@@ -11,6 +11,10 @@ import pypandoc
 
 from . import dom_extract
 
+import logging
+
+LOGGER = logging.getLogger('reblob')
+
 
 def _rewrite_srcset(srcset, base_url):
     parts = srcset.split(',')
@@ -95,15 +99,18 @@ def _extract_dom(dom, root, base_url):
 
 def _extract(text, url):
     mf = mf2py.parse(text)
-    if 'items' in mf:
+    if mf.get('items'):
+        LOGGER.info("Found mf2 document")
         return [_extract_mf(item, url) for item in mf['items']]
 
     # no valid mf2, so let's extract from DOM instead
-    dom = BeautifulSoup(r.text, features='html.parser')
+    dom = BeautifulSoup(text, features='html.parser')
     articles = (dom.find_all('article')
                 or dom.find_all(class_='entry')
                 or dom.find_all(class_='article')
                 or [dom])
+
+    LOGGER.info("Attempting to extract from ad-hoc HTML")
 
     return [_extract_dom(item, dom, url) for item in articles]
 

@@ -1,5 +1,9 @@
 import argparse
+import logging
+
 from . import convert, __version__
+
+LOG_LEVELS = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
 
 
 def parse_args(*args):
@@ -8,6 +12,9 @@ def parse_args(*args):
         description="Quote and link to a webpage in a Markdown entry")
     parser.add_argument('--version', action='version',
                         version="%(prog)s " + __version__.__version__)
+    parser.add_argument("-v", "--verbosity", action="count",
+                        help="increase output verbosity",
+                        default=0)
 
     parser.add_argument('url', type=str, nargs='+',
                         help="The original page URLs")
@@ -19,6 +26,8 @@ def parse_args(*args):
 
 def main():
     args = parse_args()
+    logging.basicConfig(level=LOG_LEVELS[min(
+        args.verbosity, len(LOG_LEVELS) - 1)])
 
     for url in args.url:
         print(convert(url))

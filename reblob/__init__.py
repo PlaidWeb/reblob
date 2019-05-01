@@ -6,7 +6,7 @@ import logging
 from bs4 import BeautifulSoup
 import requests
 import mf2py
-import pypandoc
+import html2text
 
 from . import dom_extract
 
@@ -146,8 +146,10 @@ def convert_text(text, base_url, output_format):
         for node in out_dom.findAll(**{attr: True}):
             del node[attr]
 
-    return pypandoc.convert_text(out_dom.decode_contents(),
-                                 output_format, 'html')
+    if output_format:
+        return pypandoc.convert_text(out_dom.decode_contents(),
+                                     output_format, 'html')
+    return html2text.HTML2Text().handle(out_dom.decode_contents())
 
 
 def convert(url, output_format):

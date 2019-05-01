@@ -59,7 +59,8 @@ setup(
         'beautifulsoup4',
         'pypandoc',
         'requests',
-        'mf2py'
+        'mf2py',
+        'html2text'
     ],
 
     extras_require={

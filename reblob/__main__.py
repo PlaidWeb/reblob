@@ -24,9 +24,8 @@ def parse_args(*args):
 
     parser.add_argument('--format', '-f', type=str,
                         help='''
-Output format; see https://pandoc.org/MANUAL.html#option--to
-for available options''',
-                        default='gfm')
+Pandoc output filter; see https://pandoc.org/MANUAL.html#option--to
+for available options. Uses html2text if unspecified.''')
 
     return parser.parse_args(*args)
 

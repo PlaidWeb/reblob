@@ -35,7 +35,7 @@ def main():
     """ entry point """
     args = parse_args()
     logging.basicConfig(level=LOG_LEVELS[min(
-        args.verbosity, len(LOG_LEVELS) - 1)])
+        args.v, len(LOG_LEVELS) - 1)])
 
     for url in args.url:
         print(convert(url, output_format=args.format))

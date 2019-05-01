@@ -12,3 +12,7 @@ reblob http://example.com/ -f rst
 ```
 
 It requires Pandoc to be installed; see the [pypandoc](https://github.com/bebraw/pypandoc) manual for some suggestions on how to do this.
+
+## Why the name?
+
+Because this is used to reblog/repost/reply/respect a blog entry. `re*`.

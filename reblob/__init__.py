@@ -146,8 +146,9 @@ def convert_text(text, base_url, output_format):
         for node in out_dom.findAll(**{attr: True}):
             del node[attr]
 
-    return pypandoc.convert_text(out_dom.decode_contents(),
-                                 output_format, 'html')
+    out_lines = pypandoc.convert_text(out_dom.decode_contents(),
+                                      output_format, 'html').split('\n')
+    return '\n'.join([line.rstrip() for line in out_lines])
 
 
 def convert(url, output_format):

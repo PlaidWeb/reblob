@@ -10,12 +10,18 @@ readme = "README.md"
 python = "^3.11"
 requests = "^2.32.3"
 mf2py = "^2.0.1"
-pypandoc = "^1.13"
+html-to-markdown = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 pylint = "^3.2.5"
 autopep8 = "^2.3.1"
+mypy = "^1.16.1"
+types-requests = "^2.32.4.20250611"
+flake8 = "^7.3.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+reblob = 'reblob.cli:main'

@@ -1,15 +1,14 @@
 """ reblob functions """
 
-import urllib.parse
 import logging
+import urllib.parse
 
-from bs4 import BeautifulSoup
-import requests
 import mf2py
-import pypandoc
+import requests
+from bs4 import BeautifulSoup
+from html_to_markdown import convert_to_markdown
 
 from . import dom_extract
-
 
 LOGGER = logging.getLogger('reblob')
 
@@ -28,19 +27,6 @@ def _extract_mf(item, base_url):
     """ Convert an mf2-formatted entry to a pretty blockquote """
     properties = item.get('properties', {})
 
-    out_html = '<p>'
-
-    if 'author' in properties:
-        # just use the primary author for now
-        author = properties.get('author')[0].get('properties', {})
-
-        if 'url' in author and 'name' in author:
-            out_html += '<a href="{url}">{name}</a>: '.format(
-                url=author.get('url')[0],
-                name=author.get('name')[0])
-        elif 'name' in author:
-            out_html += '{name}: '.format(name=author.get('name')[0])
-
     if 'url' in properties:
         url = properties['url'][0]
     else:
@@ -51,26 +37,27 @@ def _extract_mf(item, base_url):
     else:
         title = base_url
 
-    out_html += '<a href="{url}">{title}</a>:'.format(url=url, title=title)
-
-    out_html += '</p>'
-
-    out_html += '<blockquote cite="{url}">'.format(url=url)
-
+    body = ''
     if 'content' in properties:
         for content in properties['content']:
             if 'html' in content:
-                out_html += content['html']
+                body += content['html']
             elif 'value' in content:
-                out_html += '\n'.join(
-                    ['<p>%s</p>' % para
+                body += '\n'.join(
+                    [f'<p>{para}</p>'
                      for para in content['value'].split('\n')])
     elif 'summary' in properties:
-        out_html += '\n'.join(['<p>%s</p>' %
-                               summary for summary in properties['summary']])
+        body = '\n'.join([f'<p>{summary}</p>'
+                          for summary in properties['summary']])
 
-    out_html += '</blockquote>'
-    return out_html
+    if body:
+        return f'''
+    <p><a href="{url}">{title}</a>:</p>
+
+    <blockquote cite="{url}">{body}</blockquote>
+    '''
+
+    return ''
 
 
 def _extract_dom(dom, root, base_url):
@@ -83,15 +70,13 @@ def _extract_dom(dom, root, base_url):
         out_html += author + ': '
 
     url = dom_extract.guess_canonical_url(dom, root, base_url)
-    out_html += '<a href="{url}">{title}</a>'.format(
-        url=url,
-        title=dom_extract.guess_title(dom, root, base_url))
+    title = dom_extract.guess_title(dom, root, base_url)
+    out_html += f'<a href="{url}">{title}</a>'
 
     out_html += '</p>'
 
-    out_html += '<blockquote cite="{url}">{content}</blockquote>'.format(
-        url=url,
-        content=dom_extract.guess_content(dom))
+    content = dom_extract.guess_content(dom)
+    out_html += f'<blockquote cite="{url}">{content}</blockquote>'
 
     return out_html
 
@@ -114,7 +99,7 @@ def _extract(text, url):
     return [_extract_dom(item, dom, url) for item in articles]
 
 
-def convert_text(text, base_url, output_format):
+def convert_text(text, base_url):
     """ Convert an HTML document to output markup; attempts to find
     a plausible article to excerpt.
 
@@ -146,11 +131,10 @@ def convert_text(text, base_url, output_format):
         for node in out_dom.findAll(**{attr: True}):
             del node[attr]
 
-    return pypandoc.convert_text(out_dom.decode_contents(),
-                                 output_format, 'html')
+    return convert_to_markdown(out_dom.decode_contents())
 
 
-def convert(url, output_format):
+def convert(url):
     """ Given a URL, make an entry file.
 
     Arguments:
@@ -160,8 +144,8 @@ def convert(url, output_format):
     format -- the content format of the document
     """
 
-    req = requests.get(url)
+    req = requests.get(url, timeout=30)
     if not 200 <= req.status_code < 300:
         req.raise_for_status()
 
-    return convert_text(req.text, req.url, output_format)
+    return convert_text(req.text, req.url)

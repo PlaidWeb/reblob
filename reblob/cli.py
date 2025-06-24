@@ -3,7 +3,7 @@
 import argparse
 import logging
 
-from . import convert, __version__
+from . import __version__, convert
 
 LOG_LEVELS = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
 
@@ -22,12 +22,6 @@ def parse_args(*args):
     parser.add_argument('url', type=str, nargs='+',
                         help="The original page URLs")
 
-    parser.add_argument('--format', '-f', type=str,
-                        help='''
-Output format; see https://pandoc.org/MANUAL.html#option--to
-for available options''',
-                        default='gfm')
-
     return parser.parse_args(*args)
 
 
@@ -38,7 +32,7 @@ def main():
         args.v, len(LOG_LEVELS) - 1)])
 
     for url in args.url:
-        print(convert(url, output_format=args.format))
+        print(convert(url))
 
 
 if __name__ == '__main__':
